@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/main/resources/groovier_logo.png" width="220" alt="Groovier logo">
+</p>
+
 ```
                             _
   __ _ _ __ ___   _____   _(_) ___ _ __
