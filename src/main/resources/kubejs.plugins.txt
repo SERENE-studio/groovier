@@ -1,0 +1,2 @@
+# Groovier 作为 KubeJS 插件的入口(每行一个 FQCN,`#` 为注释)
+com.bluesky.groovier.kubejs.GroovierKubeJSPlugin

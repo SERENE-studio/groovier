@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+logoFile="groovier_logo.png"
+description='''
+Groovier: 通用 Java 运行时修改工具. 用 Groovy 脚本直接修改 Minecraft/模组的运行时, 支持 /groovier reload 热重载.
+'''
+authors="Bluesky"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+mandatory=true
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"

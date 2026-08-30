@@ -1,0 +1,170 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("src/generated/**/.cache") // datagen cache files
+}
+
+repositories {
+    // Groovy 发布在 Maven Central
+    mavenCentral()
+}
+
+base {
+    archivesName = mod_id
+}
+
+// Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// coremod 独立 sourceSet:coremod 类(SERVICE 层)与 GAME 层类源码隔离。
+// 生产:jar 任务合并两个 sourceSet 输出(单 jar 单模块,无 split package 问题);
+// dev:coremodDevJar 仅含 coremod sourceSet,与 sourceSet mod(module main)不同包,JPMS 兼容。
+// 默认目录即 src/coremod/{java,resources},无需显式 srcDir(重复注册会导致 copy duplicate)。
+sourceSets.register('coremod')
+
+configurations {
+    // coremod 类依赖 modlauncher api/ASM/slf4j:经 implementation 共享普通依赖
+    coremodImplementation.extendsFrom implementation
+}
+
+// MDG 的游戏类路径配置(modDevCompile/RuntimeDependencies)在 afterEvaluate 才创建,需延迟接线
+afterEvaluate {
+    configurations.coremodCompileClasspath.extendsFrom configurations.modDevCompileDependencies
+    configurations.coremodRuntimeClasspath.extendsFrom configurations.modDevRuntimeDependencies
+}
+
+neoForge {
+    version = project.neo_version
+
+    // Official mappings only (no Parchment)
+
+    runs {
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        client {
+            client()
+        }
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // Groovy 4.0.33:
+    //  implementation 提供编译期与 IDE 可见性
+    //  additionalRuntimeClasspath 提供 dev 运行(runServer)可见性(ModDevGradle 官方推荐)
+    //  jarJar 打包内嵌进 mod jar(META-INF/jarjar,生产环境)
+    implementation "org.apache.groovy:groovy:4.0.33"
+    additionalRuntimeClasspath "org.apache.groovy:groovy:4.0.33"
+    jarJar("org.apache.groovy:groovy:4.0.33") {
+        version {
+            strictly '[4.0.33,)'
+            prefer '4.0.33'
+        }
+    }
+
+    // KubeJS 联动(可选):仅编译期可见,运行时检测 kubejs 是否加载。
+    // 注意:引用 KubeJS 类的代码必须懒加载,避免无 KubeJS 环境 NoClassDefFoundError。
+    // jar 来自用户整合包环境,本地 libs/ 目录(避免 maven 坐标不确定性)。
+    compileOnly files("libs/kubejs-neoforge-2101.7.2-build.368.jar", "libs/rhino-2101.2.7-build.85.jar")
+
+    // Vineflower 反编译器(6.5 refer 导出):主模组 GAME 层后台反编译 local/refer/classes → groovy_scripts/refer/。
+    // jarJar 内嵌进生产 jar(服务端无网也能导出);Vineflower 1.12 要求 Java 17+,本项目 Java 21 兼容。
+    // additionalRuntimeClasspath 必须声明:MDG 的 dev 运行层清单(clientLegacyClasspath.txt)只收该配置,
+    // 缺失则 TRANSFORMER 层加载 IResultSaver 报 NCDFE(2026-08-30 实证,T-REF 探针定位)。
+    implementation "org.vineflower:vineflower:1.12.0"
+    additionalRuntimeClasspath "org.vineflower:vineflower:1.12.0"
+    jarJar("org.vineflower:vineflower:1.12.0") {
+        version {
+            strictly '[1.12.0,)'
+            prefer '1.12.0'
+        }
+    }
+}
+
+// dev 实机测试用:coremod 通道(META-INF/services 的 ITransformationService)不随 sourceSet
+// 注入 dev 运行,需把 coremod 类 + services 声明打成独立小 jar 放入 run/mods。
+// 仅含 coremod sourceSet(不含 GAME 层类),与 module main 无包重叠 → JPMS 无 split package 冲突。
+tasks.register('coremodDevJar', Jar) {
+    archiveClassifier = 'coremod-dev'
+    dependsOn 'coremodClasses', 'processCoremodResources'
+    from(sourceSets.coremod.output)
+}
+
+// 生产 jar:合并 coremod sourceSet(单 jar 同时承载 SERVICE 层与 GAME 层身份)
+tasks.named('jar') {
+    from(sourceSets.coremod.output)
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    filteringCharset = 'UTF-8' // 确保中文不被系统编码截断
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+// 环境限制:本机访问 piston-meta 下载 NFRT asset index 持续卡死,而服务端运行不使用客户端 assets。
+// 已手动生成 build/moddev/minecraft_assets.properties 供 prepareServerRun 使用,故禁用 assets 下载任务。
+// 开发客户端功能时:删除此任务禁用并恢复 downloadAssets(需网络可访问 piston-meta 或配置代理)。
+tasks.named("downloadAssets").configure {
+    enabled = false
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

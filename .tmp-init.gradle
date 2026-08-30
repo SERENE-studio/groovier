@@ -1,0 +1,9 @@
+gradle.projectsEvaluated {
+    def p = gradle.rootProject
+    println "=== CONFIGURATIONS ==="
+    p.configurations.names.sort().each { println it }
+    println "=== coremodCompileClasspath ==="
+    try {
+        p.configurations.coremodCompileClasspath.each { println it }
+    } catch (Exception e) { println "err: ${e.message}" }
+}

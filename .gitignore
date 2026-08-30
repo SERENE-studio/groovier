@@ -1,0 +1,27 @@
+# gradle
+.gradle/
+build/
+out/
+classes/
+
+# idea
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+.vscode/
+
+# eclipse
+.classpath
+.project
+.settings/
+bin/
+run/
+
+# 本地第三方依赖 jar(KubeJS/Rhino,见 build.gradle compileOnly;不入库,自行放置)
+libs/
+
+# 内部工作产物
+waste/
