@@ -57,6 +57,24 @@ Full documentation with tutorials (events, globals, pins, surgery with an ASM pr
 
 ## SERENE Team
 
+```
+                    \  |  /
+                     \ | /
+                  --  (*)  --
+                     / | \
+                    /  |  \
+
+     ~ v ~                                ~ v ~
+
+         .--.                      .--.
+      .-(    ).                  .-(    ).
+     (___.__)__)    ~ v ~      (___.__)__)
+
+  _____________________________________|\______
+  ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ |_\ ~ ~
+```
+<p align="center"><i>clear skies over calm waters — 晴空之飨</i></p>
+
 **SERENE** is an open-source, remote-collaboration team, born from the development of the Minecraft modpack **晴空之飨** (*Bluesky Fantaste*).
 
 The name takes the word's archaic sense — **"clear skies"** — and carries a touch of magic.
